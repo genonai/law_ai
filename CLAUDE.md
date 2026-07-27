@@ -122,6 +122,20 @@ Weaviate 에 적재된 조문을 검색해 **Groq LLM(OpenAI 호환)** 으로 �
 - **전제**: law_embedding 쪽 Weaviate(8081) 가 떠 있고 적재돼 있어야 함. 쿼리 임베딩 모델은 **색인과 동일(arctic)**. 이력 조회는 `data/law_data`·`data/admrul_data` 가 git repo 여야 함.
 - **Groq 주의**: Cloudflare 가 urllib 을 막아(403/1010) `httpx` 로 호출. `GROQ_API_KEY` 는 `.env`(gitignore)만, 커밋 금지.
 
+## 4-C. 배포 / 도커화 (엄브렐라 + 2 compose 스택)
+
+> `law_ai` 루트 = **엄브렐라 git repo**(origin `genonai/law_ai`, main). 코드 조각은 **서브모듈**, 런타임/외부는 제외.
+
+- **서브모듈(코드) 4개**: `temporal_law` · `law_embedding` · `law_agent` · `git_history` (각자 원격·develop). clone 은 `git clone --recursive` (또는 clone 후 `git submodule update --init`).
+- **엄브렐라 추적 제외**(.gitignore): `data/`(런타임 미러, 배포 시 clone/볼륨) · `doc_parser/`(전처리기=레지스트리 이미지) · `.env`/`.venv`.
+- **전처리기 = 레지스트리 이미지** `192.168.74.164:30500/mnc/doc-parser-preprocessor:2.2.3` (genonai/doc_parser=docling 포크. 로컬 빌드 안 함). compose 에서 `preprocessor` 서비스로 `image:` 참조. law_embedding 이 첨부파일을 이 API 로 HTTP 호출(현재는 목업).
+- **2 compose 스택** (독립 배포, `data/` git repo 로 느슨히 연결 = 수집 push / RAG pull):
+  - **수집 스택**: temporal-db · temporal · temporal-ui · lawdb · worker(+headless Chrome). sync 는 **Temporal 스케줄**(`starter schedule` 1회 → cron 자동 발화). worker 는 상주.
+  - **RAG 스택**: weaviate(8081) · law_embedding(색인 잡) · law_agent(API, git_history 라이브러리 내장) · preprocessor(이미지). 공유: `./data` 볼륨(RO, `.git` 포함) + arctic 모델캐시 볼륨.
+- **`git_history` 는 컨테이너 아님** — law_agent 가 import 하는 라이브러리라 law_agent 이미지에 포함(빌드 컨텍스트에 git_history 필요).
+- **STORAGE_MODE**: 운영은 `both`(DB+git) 사용 예정. → VM 수집 스택엔 lawdb 필요, 최초 1회 **pg_dump/restore 로 DB 이관**(both/db 모드는 catalog 가 postgres 상태라 필요. git 모드였다면 `_manifest.json` 만으로 됐음).
+- **재색인 트리거**: 수집이 data push → RAG 쪽이 `git pull` 후 `law_indexer index`(nightly cron 등). 아직 미구현.
+
 ## 5. 자주 헷갈리는 것
 
 - **JSON 구조는 수집기 payload 스키마를 따른다.** 임베딩기 매핑을 고치기 전에 수집기 payload 정의(`temporal_law/docs/`, `docs/desc/`)를 확인해 shape 를 맞춰라. 임베딩기가 기대하는 필드: 최상위 `law_id/mst/version_uid/law_name/law_type/...`, `body.articles[]`, `addenda[]`, `appendices[]`, `source.source_url`.
