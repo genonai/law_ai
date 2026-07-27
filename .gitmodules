@@ -1,0 +1,12 @@
+[submodule "temporal_law"]
+	path = temporal_law
+	url = https://github.com/sehunpark-genon/temporal_law.git
+[submodule "law_embedding"]
+	path = law_embedding
+	url = https://github.com/sehunpark-genon/law_embedding.git
+[submodule "law_agent"]
+	path = law_agent
+	url = https://github.com/sehunpark-genon/law_agent.git
+[submodule "git_history"]
+	path = git_history
+	url = https://github.com/sehunpark-genon/git_history

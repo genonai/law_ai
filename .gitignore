@@ -1,0 +1,18 @@
+# 런타임/외부 — 엄브렐라(law_ai)가 소스로 추적하지 않는 것들
+# doc_parser: 전처리기는 레지스트리 이미지로 대체 (192.168.74.164:30500/mnc/doc-parser-preprocessor)
+doc_parser/
+# data: 런타임 데이터 미러. 배포 시 별도 clone / 볼륨 마운트
+data/
+법률 측정 데이터셋.csv
+
+# 파이썬/도구 부산물
+**/.venv/
+**/__pycache__/
+*.py[cod]
+**/*.egg-info/
+.pytest_cache/
+
+# 시크릿·로컬
+.env
+**/.env
+.DS_Store
