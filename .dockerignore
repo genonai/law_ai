@@ -1,0 +1,13 @@
+# law_agent 이미지 빌드용(컨텍스트=엄브렐라 루트). law_agent·git_history 만 컨텍스트로 보낸다.
+*
+!law_agent
+!git_history
+
+# 두 디렉터리 안에서도 무거운/불필요한 것 제외 (뒤 규칙이 우선)
+**/.venv
+**/.git
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+**/.env
+**/.DS_Store

@@ -1,0 +1,95 @@
+# RAG 스택: weaviate(벡터DB) + law_embedding(색인 잡) + law_agent(API) + preprocessor(전처리 이미지)
+# 수집 스택(temporal_law)은 별도 compose. 이 스택은 data/ 를 읽기 전용으로 소비한다.
+#
+#   docker compose -f docker-compose.rag.yml up -d weaviate law_agent
+#   docker compose -f docker-compose.rag.yml --profile index run --rm law_embedding index --input /data/law_data --recursive
+#
+# GROQ_API_KEY 등은 law_ai/.env 로 주입(compose 가 자동 로드).
+name: law-rag
+
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.29.0
+    ports:
+      - "127.0.0.1:8081:8080"     # 호스트 8081 (8080 은 temporal-ui). 컨테이너 내부끼리는 weaviate:8080
+      - "127.0.0.1:50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: "25"
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  # 색인 잡(상주 서비스 아님). --profile index 로만 뜬다 → docker compose run 으로 실행.
+  law_embedding:
+    build:
+      context: ./law_embedding
+    image: law_embedding:dev
+    profiles: ["index"]
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    environment:
+      WEAVIATE_HTTP_HOST: weaviate
+      WEAVIATE_HTTP_PORT: "8080"
+      WEAVIATE_GRPC_HOST: weaviate
+      WEAVIATE_GRPC_PORT: "50051"
+      WEAVIATE_COLLECTION: LegalProvisionIndex
+      EMBEDDING_MODEL: Snowflake/snowflake-arctic-embed-m-v2.0
+      NORMALIZE_EMBEDDINGS: "true"
+      INPUT_DATA_PATH: /data
+      HF_HOME: /cache/hf
+    volumes:
+      - ./data:/data:ro
+      - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/cache/hf
+
+  law_agent:
+    build:
+      context: .                        # 엄브렐라 루트 (git_history 포함 위해)
+      dockerfile: law_agent/Dockerfile
+    image: law_agent:dev
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8800:8000"
+    environment:
+      WEAVIATE_HTTP_HOST: weaviate
+      WEAVIATE_HTTP_PORT: "8080"
+      WEAVIATE_GRPC_HOST: weaviate
+      WEAVIATE_GRPC_PORT: "50051"
+      WEAVIATE_COLLECTION: LegalProvisionIndex
+      EMBEDDING_MODEL: Snowflake/snowflake-arctic-embed-m-v2.0
+      NORMALIZE_EMBEDDINGS: "true"
+      RAG_TOP_K: "5"
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      RAG_HISTORY_ENABLED: "true"
+      RAG_HISTORY_LAW_REPO_PATH: /data/law_data
+      RAG_HISTORY_ADMRUL_REPO_PATH: /data/admrul_data
+      HF_HOME: /cache/hf
+    volumes:
+      - ./data:/data:ro
+      - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/cache/hf
+    restart: unless-stopped
+
+  # 첨부파일 전처리기(외부 이미지). 레지스트리 접근·이미지 확정되면 --profile preprocessor 로 활성화.
+  # law_embedding 이 PREPROCESS_API_URL=http://preprocessor:PORT 로 호출 예정(실연결 담당자).
+  preprocessor:
+    image: 192.168.74.164:30500/mnc/doc-parser-preprocessor:2.2.3
+    profiles: ["preprocessor"]
+    restart: unless-stopped
+
+volumes:
+  weaviate_data:
