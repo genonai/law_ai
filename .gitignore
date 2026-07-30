@@ -4,6 +4,8 @@ doc_parser/
 # data: 런타임 데이터 미러. 배포 시 별도 clone / 볼륨 마운트
 data/
 법률 측정 데이터셋.csv
+# _preproc_test: Doc Parser 컨테이너 공유 스테이징(런타임 임시). DOC_PARSER_SHARED_HOST_DIR
+_preproc_test/
 
 # 파이썬/도구 부산물
 **/.venv/
