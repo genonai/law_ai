@@ -95,6 +95,12 @@ uv run python -m law_indexer search --query "..." --limit 5
 
 > 사용자가 직접 짠 코드가 아니라 자유롭게 고쳐도 되는 영역. 작업은 **`develop` 브랜치**에서(origin=sehunpark-genon/law_embedding). 커밋 신원 = 본인, AI 트레일러 금지.
 
+**2026-07 최신 (develop `849915f`)** — 다른 담당자가 admrul 실색인 + 실제 Doc Parser 연동(`7810a6e`), 그 위에 법령쪽:
+- **증분 색인**: 생산자(temporal_law `pipeline/common/changeset.py` = manifest `version_signature` diff → change-set JSONL) → 소비자 `index-changeset`(upsert=옛청크 `delete_by_law_id` 후 재적재 / delete). git·DB 모드 공용(payload_getter 주입). **초기 full = `index`, 매일은 change-set.** 아직 자동 오케스트레이션(SYNC→emit→index-changeset)·payload_getter 실배선은 미완.
+- **법령 `[그림]` OCR off**: 표·수식이 본문 텍스트(박스드로잉 표 포함)에 이미 있어 중복·저품질 → 법령은 skip, admrul 만 유지. Doc Parser 결정오류(code!=0 등) 재시도 금지 + 초소형 글리프 크기게이트(`MIN_ARTICLE_IMAGE_SIDE`).
+- **법령 is_file_only 별표 = 7개 법뿐** (관세법 · 자유무역협정특례 시행령/시행규칙 · 세계무역기구 양허관세 · 특정국가 관세협상 · 최빈개발도상국 특혜관세 · 가족관계등록규칙; FTA 협정관세율표 등 ~60여 파일). **벌크 색인은 docparser 끄고**(16GB 메모리 절약) 돌린 뒤, **이 7법만 docparser 켜고 타겟 재색인**(`index --source law --input <경로>`). 일부(관세율표·인명용한자표)는 hwp 자체가 stub.
+- **초기 full 색인**: 노트북(16GB)에선 21%(86,752객체)에서 스왑 한계로 중단 → **RAM 넉넉한 VM 에서 재색인 예정**(멱등이라 이어받기 OK).
+
 **정리 완료 (develop `4b6647b`)**
 1. ✅ **경로 정정.** `INPUT_DATA_PATH` 기본값을 `../data` 로. `index`/`index-files` 는 `--input` 생략 시 data 루트를 재귀 순회하고 `_manifest.json` 은 스킵. (README·.env.example 갱신, `law_api` 참조 제거)
 2. ✅ **README 조사수치 갱신** (옛 2,771/18,707 삭제).
@@ -110,11 +116,11 @@ uv run python -m law_indexer search --query "..." --limit 5
 
 ## 4-B. `law_agent` — RAG 에이전트 (+ `git_history` 툴)
 
-> 별도 repo(origin `sehunpark-genon/law_RAG`, **repo명 law_agent 로 개명 예정**, develop 브랜치). 로컬 디렉터리·패키지는 `law_agent`(`python -m law_agent`). 사용자가 세션 밖에서 크게 확장한 코드.
+> 별도 repo(origin `sehunpark-genon/law_agent`, develop 브랜치). 로컬 디렉터리는 `law_agent` 지만 **파이썬 패키지는 `agent`** (`src/agent/`) — CLI 는 `python -m agent`, API 는 `uvicorn agent.api:app`. 2026-07 모듈 구조 재편(`nodes`·`services`·`tools` 분리). 사용자가 세션 밖에서 크게 확장한 코드.
 
 Weaviate 에 적재된 조문을 검색해 **Groq LLM(OpenAI 호환)** 으로 답하는 **LangGraph 에이전트**. 색인·적재는 안 하고 Weaviate/`data/` 를 읽기 전용으로 소비한다.
 
-- **그래프**: `retrieve → route_history → (lookup_history) → answer` (`src/law_agent/graph.py`).
+- **그래프**: `retrieve → route_history → (lookup_history) → answer` (`src/agent/graph.py`; 노드 `src/agent/nodes/`, 서비스 retriever/llm/prompt `src/agent/services/`, git_history 툴 래퍼 `src/agent/tools/`).
   - `route_history`: **LLM tool-router** 가 "연혁·개정·과거 시점" 질문인지 JSON 으로 판단(실패 시 키워드 규칙 폴백, `history.py`).
   - `lookup_history`: 검색 hit 의 **`git_path`(원본 JSON 파일)** 기준으로 `git_history` 툴이 그 파일의 commit timeline·개정문·diff 를 읽어 컨텍스트로 붙임. (synthetic provision_id 에 의존 안 함 → 부칙처럼 id 없는 단위도 처리)
 - **명령**: `retrieve`(LLM 없이 검색/프롬프트) · `ask`(검색+답변). 옵션 `--trace/--show-history/--show-prompt/--history-date/--no-history`.
