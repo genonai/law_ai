@@ -15,6 +15,16 @@
 - **코드 바꾸면 워커 재시작** (Temporal 은 워커가 가진 코드로 실행 — 수집기).
 - **`law_embedding` 은 사용자가 직접 짜지 않은 코드다. 아직 정리·수정이 필요하다** (§4 알려진 격차). 손대기 전에 무엇을 바꿀지 확인.
 
+## 0-A. 다음 세션 시작점 (2026-07-31 핸드오프)
+
+> **먼저 [`todo.md`](todo.md) 와 [`law_embedding/docs/law-data-handoff-architecture.md`](law_embedding/docs/law-data-handoff-architecture.md)(DMZ/내부망 9 subcase + JSONL package 계약) 를 읽어라.**
+
+- **배포 목표(사용자 확정):** "어디서든 돌아가게". 예시 = **VM1 = 수집기(`temporal_law`, temporal 워커)** → **SYNC** → **VM2 = genos(회사 LLMOps/DevOps 서비스)** 에 **임베딩 파이프라인(temporal 워커)** 올려 Weaviate 적재. **temporal 이 양쪽에 있을 예정.** VM1→VM2 전송 계약 = 핸드오프 문서 §6 **JSONL package**(record_type: package_header/document/normalized_chunk/preprocessed_chunk/file/pending_attachment/delete) 로 **다 커버**하는 방향. 청킹은 **임베딩 쪽 유지**(payload→`map_law_data`).
+- **VM 실측(VPN 필요·키 인증 `~/.ssh/id_ed25519_VM`):** `ssh genon-2`=**genos**(31GB/20core, 디스크 48G중 **17G 여유**, **containerd/k8s 플랫폼**·docker compose 있음·uv/python3/GPU 없음 → 임베딩 워커는 **컨테이너 이미지로 배포**) · `ssh genon-3`=쌩 VM(31GB/20core, root 디스크 48G(작음)지만 **별도 data disk 100GB 마운트됨**, docker/uv 없음). genos 앱 UI = 터널 `ssh -N -L 30908:localhost:30908 genon-2` 후 localhost:30908(genos 로그인은 별도 자격증명 — 커밋·문서에 남기지 말 것).
+- **코드는 전부 커밋·푸시됨:** law_embedding develop `849915f`(증분 소비자 `index-changeset`·`delete_by_law_id` + 법령 `[그림]` off, 테스트 90 passed) · temporal_law develop `5f2dc16`(origin·personal·gitlab; 증분 생산자 `changeset.py` + 전처리 HTTP 클라이언트) · law_agent develop `eba89df`(패키지 `law_agent→agent` 재편) · 엄브렐라 `genonai/law_ai` main `4ae1807`. temporal_law 삭제-정리 후 **런타임 검증 OK**(worker + `sync-now` 실제 실행 → 학교급식법 개정 수집·국군방첩사령부령 폐지 처리 성공, `GIT_EXPORT_PUSH=false`).
+- **법령 초기 색인 = 노트북(16GB) 21%(86,752객체)에서 스왑 한계로 중단** → **VM2/genos(RAM↑)에서 재색인** 필요(멱등이라 이어받기 OK, docparser 끄고 벌크 → is_file_only 7법만 켜고 타겟).
+- **다음 할 일: [`todo.md`](todo.md).**
+
 ## 1. 전체 구조 / 데이터 흐름
 
 ```
@@ -41,7 +51,7 @@ Weaviate (로컬)  ← RAG 검색용 벡터 DB (컬렉션 LegalProvisionIndex)
 
 - **경계가 명확하다.** 수집기는 `data/` 에 **쓰기**, 임베딩기·RAG 는 `data/`·Weaviate 를 **읽기 전용**으로만 소비한다. `data/` 는 손으로 편집하지 않는다(수집기가 덮어씀).
 - **첨부파일(hwp/pdf/hwpx) 은 임베딩기가 파싱하지 않는다.** 별도 **전처리 API** 로 텍스트 청크를 뽑은 뒤, 그 결과 JSON 을 `index-attachment-chunks` 로 따로 적재한다(§3-B).
-- **각 조각은 독립 git repo** 다: `temporal_law`, `law_embedding`(origin sehunpark-genon), `law_agent`(origin sehunpark-genon/law_RAG — repo명 개명 예정), `git_history`(origin sehunpark-genon), `data/law_data`·`data/admrul_data`(genonai). 루트 `law_ai` 는 git 아님.
+- **각 조각은 독립 git repo** 다: `temporal_law`, `law_embedding`(origin sehunpark-genon), `law_agent`(origin sehunpark-genon/law_agent, 패키지 `agent`), `git_history`(origin sehunpark-genon), `data/law_data`·`data/admrul_data`(genonai). 루트 `law_ai` 는 **엄브렐라 git repo**(genonai/law_ai, 서브모듈).
 
 ## 2. `temporal_law` — 수집기 (요약)
 
@@ -65,9 +75,10 @@ Weaviate (로컬)  ← RAG 검색용 벡터 DB (컬렉션 LegalProvisionIndex)
   - `stable_id` / `object_uuid`(uuid5): 같은 `chunk_id` → 같은 UUID → 재적재 시 교체(멱등).
 - `embedder.py` — `ArcticEmbedder` (SentenceTransformers, document/query API 분리, L2 정규화). 기본 `Snowflake/snowflake-arctic-embed-m-v2.0`.
 - `weaviate_store.py` — 컬렉션 생성/upsert/search/health. self-provided vector(내부 vectorizer OFF). 컬렉션당 **모델·차원 1종만** 허용(적재 직전 검증).
-- `preprocess.py` — **첨부파일 전처리 목업.** 파일 경로 → 청크 dict. 상위 문서 JSON 에서 메타 회수 + 별표 provision_id best-effort 매칭. **실제 API 는 `preprocess_file` 만 교체**(그 외 재사용).
-- `pipeline.py` — `discover`(확장자/스킵) · `index_paths`(조문 JSON) · `index_attachment_files`(첨부→전처리→적재). 공통 `_run` 루프, 파일 실패는 건너뛰고 계속.
-- `cli.py` — `health` / `create-collection [--recreate]` / `index`(생략 시 data 전체) / `index-files`(첨부 목업) / `index-attachment-chunks` / `search`.
+- `preprocess.py` — **실제 Doc Parser HTTP 클라이언트**(`DocParserClient` `/run`) + 로컬 파일경로 역산·GIF→PNG 변환·초소형 글리프 크기게이트(`MIN_ARTICLE_IMAGE_SIDE`)·결정오류 재시도금지. is_file_only 별표/문서전체=파일 처리. (법령 `[그림]` 은 §4 대로 skip — admrul 만 OCR)
+- `pipeline.py` — `index_documents`(조문 JSON + 인라인 Doc Parser: [그림]/is_file_only/문서파일) · `index_changeset`(**증분** change-set JSONL 소비) · `index_paths`/`index_attachment_files`(구 경로). 파일 실패는 건너뛰고 계속.
+- `weaviate_store.py` 에 `delete_by_law_id`(증분 재적재 시 옛 버전 청크 제거) 추가됨.
+- `cli.py` — `health` / `sync [--source]` / `create-collection [--recreate] [--source]` / `index [--source law|admrul|both]` / `index-files` / `index-attachment-chunks` / `index-changeset [--source]`(증분) / `search`.
 
 ### 3-B. 실행 (로컬, uv)
 ```bash
@@ -134,13 +145,13 @@ Weaviate 에 적재된 조문을 검색해 **Groq LLM(OpenAI 호환)** 으로 �
 
 - **서브모듈(코드) 4개**: `temporal_law` · `law_embedding` · `law_agent` · `git_history` (각자 원격·develop). clone 은 `git clone --recursive` (또는 clone 후 `git submodule update --init`).
 - **엄브렐라 추적 제외**(.gitignore): `data/`(런타임 미러, 배포 시 clone/볼륨) · `doc_parser/`(전처리기=레지스트리 이미지) · `.env`/`.venv`.
-- **전처리기 = 레지스트리 이미지** `192.168.74.164:30500/mnc/doc-parser-preprocessor:2.2.3` (genonai/doc_parser=docling 포크. 로컬 빌드 안 함). compose 에서 `preprocessor` 서비스로 `image:` 참조. law_embedding 이 첨부파일을 이 API 로 HTTP 호출(현재는 목업).
+- **전처리기 = 레지스트리 이미지** `192.168.74.164:30500/mnc/doc-parser-preprocessor:2.2.3` (genonai/doc_parser=docling 포크. 로컬 빌드 안 함). facade `attachment_processor.py`→`/app/src/preprocessor.py`, config→`/app/resource_dev/attachment_processor_config.yaml` 오버레이로 기동, `/run` 은 **파일 업로드 아니라 경로**(공유 볼륨 필요). Apple Silicon 은 `--platform linux/amd64`. law_embedding `DocParserClient` 가 실제 HTTP 호출. ⚠ 로컬 오버레이 컨테이너는 hwp2hwpx·libreoffice 백엔드 일부 빠져 엣지 파일 실패 가능(모델/OCR 은 정상).
 - **2 compose 스택** (독립 배포, `data/` git repo 로 느슨히 연결 = 수집 push / RAG pull):
   - **수집 스택**: temporal-db · temporal · temporal-ui · lawdb · worker(+headless Chrome). sync 는 **Temporal 스케줄**(`starter schedule` 1회 → cron 자동 발화). worker 는 상주.
   - **RAG 스택**: weaviate(8081) · law_embedding(색인 잡) · law_agent(API, git_history 라이브러리 내장) · preprocessor(이미지). 공유: `./data` 볼륨(RO, `.git` 포함) + arctic 모델캐시 볼륨.
 - **`git_history` 는 컨테이너 아님** — law_agent 가 import 하는 라이브러리라 law_agent 이미지에 포함(빌드 컨텍스트에 git_history 필요).
 - **STORAGE_MODE**: 운영은 `both`(DB+git) 사용 예정. → VM 수집 스택엔 lawdb 필요, 최초 1회 **pg_dump/restore 로 DB 이관**(both/db 모드는 catalog 가 postgres 상태라 필요. git 모드였다면 `_manifest.json` 만으로 됐음).
-- **재색인 트리거**: 수집이 data push → RAG 쪽이 `git pull` 후 `law_indexer index`(nightly cron 등). 아직 미구현.
+- **재색인/증분 트리거**: 초기 full = `index --source law`(RAM 큰 곳). 매일 증분 = 수집기 SYNC → 변경분(→ 목표 §6 JSONL package, 현재 `changeset.py` 단순 change-set) → `index-changeset` 소비(옛청크 `delete_by_law_id` 후 재적재). **자동 오케스트레이션(SYNC→emit→index-changeset)·VM1→VM2 전송은 아직 미배선** — §0-A·[`todo.md`](todo.md) P0-2/P1-1 참조.
 
 ## 5. 자주 헷갈리는 것
 

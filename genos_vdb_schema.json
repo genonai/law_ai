@@ -1,0 +1,53 @@
+{
+  "class": "LegalProvisionIndex",
+  "description": "법령류 조문/부칙/별표/개정문/파일 청크 (self-provided vector). 행정규칙류는 같은 properties 로 class 이름만 AdmrulProvisionIndex 로 바꿔 컬렉션 하나 더 생성(스키마 동일). 필터(indexFilterable) 17 · BM25(indexSearchable) search_text(kagome_kr) · 벡터 HNSW cosine.",
+  "vectorizer": "none",
+  "vectorIndexType": "hnsw",
+  "vectorIndexConfig": {
+    "distanceMetric": "cosine"
+  },
+  "invertedIndexConfig": {
+    "bm25": { "b": 0.75, "k1": 1.2 },
+    "indexNullState": false,
+    "indexPropertyLength": false,
+    "indexTimestamps": false
+  },
+  "multiTenancyConfig": { "enabled": false },
+  "properties": [
+    { "name": "chunk_id",            "dataType": ["text"],    "description": "필터 · 청크 UUID 근거", "indexFilterable": true,  "indexSearchable": false, "tokenization": "field" },
+    { "name": "provision_id",        "dataType": ["text"],    "description": "필터 · 조문/부칙/별표 단위 ID", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "law_id",              "dataType": ["text"],    "description": "필터 · 문서 단위 ID(삭제/재적재 기준)", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "version_uid",         "dataType": ["text"],    "description": "필터 · 버전 식별자", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "file_id",             "dataType": ["text"],    "description": "필터 · 파일 청크 그룹 식별", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "unit_type",           "dataType": ["text"],    "description": "필터 · ARTICLE/ADDENDUM/APPENDIX/AMENDMENT/FILE", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "is_current",          "dataType": ["boolean"], "description": "필터 · 현행 여부", "indexFilterable": true },
+    { "name": "enforcement_date",    "dataType": ["date"],    "description": "필터 · 시행일(as-of, 범위검색)", "indexFilterable": true, "indexRangeFilters": true },
+    { "name": "reference_ids",       "dataType": ["text[]"],  "description": "필터 · 위임·인용 대상 provision_id 목록", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "parent_provision_id", "dataType": ["text"],    "description": "필터 · 상위 조문/별표", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "ministry",            "dataType": ["text"],    "description": "필터 · 소관부처", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "domain",              "dataType": ["text"],    "description": "필터 · law/admrul (코퍼스 구분: 법령/복지/서민금융/판례)", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "law_name",            "dataType": ["text"],    "description": "필터 · 법령/행정규칙명 (이 법 안에서만 검색용 exact match — field 토크나이저)", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "law_type",            "dataType": ["text"],    "description": "필터 · 법률/대통령령/부령/고시/판례 등", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "source_type",         "dataType": ["text"],    "description": "필터 · JSON 본문/FILE 첨부", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "is_future",           "dataType": ["boolean"], "description": "필터 · 미래 시행 예정(is_current 와 함께 현행/미래 분리)", "indexFilterable": true },
+    { "name": "revision_type",       "dataType": ["text"],    "description": "필터 · 제정/일부개정/전부개정/타법개정", "indexFilterable": true, "indexSearchable": false, "tokenization": "field" },
+    { "name": "search_text",         "dataType": ["text"],    "description": "BM25+표시 · 임베딩 대상 원문(법령명+종류+조번호+제목+content 합성). hybrid 키워드 검색 주력. tokenization=kagome_kr(한국어 형태소). ※ Weaviate 에 ENABLE_TOKENIZER_KAGOME_KR 모듈 필요 — 생성 거부되면 trigram 으로 대체", "indexFilterable": false, "indexSearchable": true, "tokenization": "kagome_kr" },
+    { "name": "content",             "dataType": ["text"],    "description": "표시 · 청크 본문 (키워드 검색은 search_text 로 커버 — BM25 off)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "law_abbr",            "dataType": ["text"],    "description": "표시 · 약칭 (키워드는 search_text 로 커버)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "unit_no",             "dataType": ["text"],    "description": "표시 · 조문/부칙/별표 번호 (키워드는 search_text 로 커버)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "unit_title",          "dataType": ["text"],    "description": "표시 · 단위 제목 (키워드는 search_text 로 커버)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "chapter",             "dataType": ["text"],    "description": "표시 · 장/절 (키워드는 search_text 로 커버)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "source_url",          "dataType": ["text"],    "description": "표시 · law.go.kr URL", "indexFilterable": false, "indexSearchable": false },
+    { "name": "git_path",            "dataType": ["text"],    "description": "표시 · 원본 JSON 경로(연혁 추적)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "mst",                 "dataType": ["text"],    "description": "표시 · 법제처 MST (링크 해석은 이름 기반이라 필터 불필요)", "indexFilterable": false, "indexSearchable": false },
+    { "name": "adm_uid",             "dataType": ["text"],    "description": "표시 · 행정규칙 저장키", "indexFilterable": false, "indexSearchable": false },
+    { "name": "file_name",           "dataType": ["text"],    "description": "표시 · 파일명", "indexFilterable": false, "indexSearchable": false },
+    { "name": "file_url",            "dataType": ["text"],    "description": "표시 · 파일 URL", "indexFilterable": false, "indexSearchable": false },
+    { "name": "page_no",             "dataType": ["int"],     "description": "표시 · 대표 페이지", "indexFilterable": false },
+    { "name": "chunk_index",         "dataType": ["int"],     "description": "표시 · 문서 내 청크 순번", "indexFilterable": false },
+    { "name": "chunk_count",         "dataType": ["int"],     "description": "표시 · 문서 내 청크 수", "indexFilterable": false },
+    { "name": "promulgation_date",   "dataType": ["date"],    "description": "표시 · 공포일", "indexFilterable": false },
+    { "name": "revision_date",       "dataType": ["date"],    "description": "표시 · 개정일", "indexFilterable": false },
+    { "name": "meta",                "dataType": ["text"],    "description": "meta · 나머지 부가·추적 키를 JSON 문자열 1개로(relation_refs·file_kind·n_char·개정문 등). where 필터 불가", "indexFilterable": false, "indexSearchable": false }
+  ]
+}
