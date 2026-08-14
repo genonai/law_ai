@@ -228,33 +228,29 @@ WEAVIATE_* / LAW_COLLECTION / ADMRUL_COLLECTION ...
 
 ---
 
-## H. 운영 노트 — `_safe`(긴 파일명) 정규화
+## H. 긴 파일명(255바이트 초과) — 정책 B: **git 은 항상 원본 이름** (구현 완료 2026-08)
 
-**실측(2026-08)**: `data/` 345,030개 파일 중 **240B 초과 = 105개(0.03%)**, 전부 **별표/별지/서식**(제목 극장문,
-최대 310B). **법령·행정규칙 JSON, 일반 파일은 0개.** 즉 `_safe`가 실제로 손대는 건 이 105개뿐.
+**실측**: `data/` 345,030개 중 경로요소 255바이트 초과는 **소수(별표/별지/서식, 한글 ~86자↑, 최대 310B)**.
+**법령·행정규칙 JSON, 일반 파일은 0개.** git_path(JSON)는 안 걸려 git_history·"git 으로 찾아가기"는 무관.
 
-- **경로 일관성 확인됨**: 초기 gitexport·증분 stamp(`repo_rel_json_path`)·RepoMirror·git 읽기가 **전부
-  `mdexport.law_dir`+`_safe` 한 곳을 공유** → pull/저장/증분 모두 같은 경로. 어긋날 여지 없음.
-- 기존 `data/law_data` 는 픽스 **전**에 push돼서, 이 105개가 옛 경로(>255B, 리눅스 checkout 실패)로 남아 있음.
-- **정규화(한 번만)**: 그 105개 법만 재-export → `~해시` 새 경로로 rename·commit·push → 이후 리눅스 clean.
-  - API-free 재-export **스크립트가 아직 없음**(gitexport 는 collect_and_store 안에서만 돎) → **작은 유틸 필요**,
-    또는 어차피 VM 재수집 시 자동 정규화.
-- **수집기는 Mac 에 묶일 필요 없음** — 픽스가 write 시점에 잘라 **리눅스 VM 에서 write·checkout 모두 안전**
-  (리눅스로 옮기면 macOS NFD/NFC 이슈도 사라짐).
+**결정(사용자 확정)**: git(GitHub·내부 Gitea)에는 **safe 없이 정확한 원본 글자**가 들어가야 한다 — 수집기가
+push 하든 임베딩기가 push 하든. `safe`(바이트절단)는 **리눅스 로컬 작업본에서만** 쓰고, git 경계에서 변환한다.
+(리눅스 ext4 는 255**바이트**, macOS 는 255**글자** 한계 → 한글 ~100자 이름이 리눅스에서만 checkout 실패.)
 
-### "pull=safe, push=원래이름" 요청에 대한 결론
-- **99.97%(344,925개)는 이미 원래 이름** — `_safe`가 안 건드려서 GitHub·내부 Gitea 어디든 원래 한글 그대로.
-  즉 "push 원래대로"는 이 파일들엔 **자동으로 됨**(할 게 없음).
-- **105개 별표만** 리눅스에서 원래 이름 불가(>255B). 이건 리눅스 파일시스템 한계라 **기술적으로 못 함**
-  (그게 픽스가 푼 문제). 원래 **제목은 JSON 내용(appendices)에 그대로** 있어 유실 아님 — 파일명만 짧아짐.
-- → 권장: **105개는 그냥 잘린 이름으로 통일**(canonical 포함). 105개 때문에 "GitHub=원래/리눅스=safe" 두 레포로
-  가르는 건 과함. (정말 원본 파일명 보존이 필요하면 별도 매핑 파일 방식이 있으나 비추.)
+- **수집기 `mdexport._safe`** = 원본 이름(금지문자 치환 + 120자 컷만, 바이트절단·해시 없음). 내가 넣었던
+  바이트절단은 **revert** — 그게 git 에 잘린 이름을 넣을 유일한 코드였다. (수집기는 macOS 호스트면 그대로 써짐.)
+- **임베딩기 read(`git_sync.sync_repo`)**: clone/fetch 시 255바이트 초과 파일은 리눅스가 checkout 을 못 하므로
+  '파일명 너무 김' 오류를 관용하고, 그 파일만 **safe 이름으로 materialize**(`git cat-file`)한다. 원본(긴) 경로는
+  `skip-worktree` + `.git/info/exclude` 로 표시 → git 원본 불변, `git add -A` 로도 safe 사본이 안 샌다.
+- **임베딩기 `preprocess._safe_name`** = 수집기와 동일(clean+120자컷) 후 **255바이트 초과일 때만** 바이트절단.
+  materialize 규칙과 같은 함수라 색인이 그 파일을 정확히 찾는다.
+- **미러 push(`RepoMirror`, `PACKAGE_MIRROR_PUSH=on`)**: 255바이트 초과 첨부는 리눅스 작업트리에 못 쓰므로
+  **git plumbing**(`hash-object`→index cacheinfo, `skip-worktree`)으로 **원본 경로** blob 을 커밋 트리에 넣는다
+  → 내부 Gitea 도 원본(한글) 이름으로 찾아간다. (folder-only 면 git 조작 없이 로컬 브라우징용 safe 사본만.)
 
-## I. 검토에서 나온 주의(구현 시 반영)
-- **RepoMirror 내부 push 는 새 기능**: 지금 소비자(law_embedding)엔 git 명령이 **하나도 없다**. "내부 Gitea/GitLab
-  push"는 소비자에 **git init/commit/push 로직 추가**가 필요(단순 서브폴더 수정보다 큼). 서브폴더 정확화와
-  git-push 배선을 **별도 하위작업**으로.
-- 그 외 A~G 는 일관됨 — 그대로 구현하면 됨.
+**남은 것**: ⒜ 기존 `data/law_data`(GitHub)는 이미 **원본 이름**이라(수집기가 원래 안 잘랐음) 손댈 것 없음 —
+리눅스 소비자는 위 materialize 로 자동 처리. ⒝ 수집기를 **리눅스에서 직접** 돌려 그 초과 이름을 커밋해야 하면
+수집기 gitexport 에도 같은 plumbing 이 필요(현재 미구현 — macOS/윈도우 호스트면 불필요).
 
-각 단계 테스트 동반. 구현은 이 문서 확정 후 시작.
+각 단계 테스트 동반(수집기 70 · 임베딩 163 passed). 구현 완료.
 </content>
