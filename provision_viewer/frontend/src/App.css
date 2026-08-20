@@ -1,0 +1,542 @@
+/* Vite 템플릿 기본 #root 제약(1126px 고정폭 + 좌우 테두리)을 없애 전체 폭 앱처럼 보이게 한다. */
+#root {
+  width: 100%;
+  max-width: none;
+  border-inline: none;
+  text-align: left;
+}
+
+.page {
+  min-height: 100vh;
+  background: #f7f7f9;
+  color: #1f2330;
+  padding: 2rem 1.25rem 5rem;
+}
+
+.shell {
+  max-width: 980px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* ---------- 검색 폼 (조회용 입력, 부수적인 UI라 존재감을 낮춘다) ---------- */
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.search-form input {
+  flex: 1 1 300px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.88rem;
+  border: 1px solid #dfe1e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2330;
+}
+
+.search-form input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.search-form input::placeholder {
+  color: #a3a8b3;
+}
+
+.search-form button {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #363b4d;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.search-form button:hover:not(:disabled) {
+  background: #22242e;
+}
+
+.search-form button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.error {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fdf2f2;
+  color: #a13f3f;
+  border: 1px solid #f3d9d9;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+}
+
+/* ---------- 문서 하나 = 한 장의 시트. 그 안에서 nested card를 만들지 않는다 ---------- */
+
+.doc-view {
+  background: #ffffff;
+  border: 1px solid #eaebf0;
+  border-radius: 10px;
+  padding: 2.25rem clamp(1.5rem, 5vw, 3.25rem) 2.75rem;
+}
+
+.doc-meta-line {
+  margin: 0 0 1.1rem;
+  font-size: 0.82rem;
+  color: #9aa0ac;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.doc-inactive-flag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #935e11;
+  background: #fdf3e7;
+  padding: 0.1rem 0.5rem;
+  border-radius: 5px;
+}
+
+/* ---------- 조문 헤더: 정보 위계 ---------- */
+
+.article-header {
+  margin-bottom: 1.5rem;
+}
+
+.article-header-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.badge-current {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #157a4f;
+  background: #eaf7f0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  transform: translateY(-0.1rem);
+}
+
+.article-no {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #14162b;
+  letter-spacing: -0.01em;
+}
+
+.article-title {
+  margin: 0.3rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  color: #4b4f5c;
+}
+
+.article-meta {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+  color: #9aa0ac;
+}
+
+/* ---------- 현재 조문 본문 ---------- */
+
+.current-content {
+  max-width: 700px;
+  font-family: Georgia, "Noto Serif KR", serif;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: #23262f;
+  padding-bottom: 1.75rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.content-line {
+  margin: 0 0 0.6rem;
+  word-break: break-word;
+}
+
+.content-line.level-0 {
+  color: #23262f;
+}
+
+.content-line.level-1 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: 1.3rem;
+  margin-bottom: 0.6rem;
+  color: #262c48;
+}
+
+.content-line.level-1:first-child {
+  margin-top: 0;
+}
+
+.content-line.level-2 {
+  margin-left: 0.6rem;
+  color: #2b2f3a;
+}
+
+.content-line.level-3 {
+  margin-left: 1.6rem;
+  color: #3d4150;
+}
+
+.content-line.level-4 {
+  margin-left: 2.6rem;
+  font-size: 0.92em;
+  color: #4b4f5c;
+}
+
+.content-line.level-5 {
+  margin-left: 3.6rem;
+  font-size: 0.92em;
+  color: #575b68;
+}
+
+/* ---------- 공용 섹션 타이틀 ---------- */
+
+.section-title {
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1d29;
+}
+
+/* ---------- 개정 내용 비교 — 항상 펼쳐진 핵심 영역 ---------- */
+
+.revision-section {
+  margin-bottom: 2rem;
+}
+
+.revision-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.revision-head .section-title {
+  margin: 0;
+}
+
+.revision-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.revision-nav-btn {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 6px;
+  border: 1px solid #e2e4ea;
+  background: #ffffff;
+  color: #4b4f5c;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.revision-nav-btn:hover:not(:disabled) {
+  background: #f3f4f7;
+  border-color: #cfd2db;
+}
+
+.revision-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.revision-range {
+  font-size: 0.82rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.revision-empty {
+  font-size: 0.88rem;
+  color: #9aa0ac;
+  margin: 0;
+}
+
+/* ---------- Diff: 문서 비교 화면(코드 diff 느낌 배제) ----------
+   강조 단위는 "항 → 문장 → 구절"이다. 글자 단위 밑줄/색상은 쓰지 않고,
+   변경된 구절에만 아주 연한 배경을 준다. */
+
+.diff-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  font-family: Georgia, "Noto Serif KR", serif;
+  font-size: 0.95rem;
+  line-height: 1.85;
+}
+
+.diff-col-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.7rem;
+}
+
+.diff-pane-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #3d4150;
+}
+
+.diff-pane-meta {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.76rem;
+  color: #9aa0ac;
+}
+
+.diff-divider {
+  grid-column: 1 / -1;
+  border-top: 1px solid #e5e7eb;
+  margin-bottom: 0.6rem;
+}
+
+.diff-col-old {
+  padding-right: 1.4rem;
+  border-right: 1px solid #eef0f4;
+}
+
+.diff-col-new {
+  padding-left: 1.4rem;
+}
+
+/* --- 항(①②③) 단위 블록 --- */
+
+.diff-clause {
+  padding: 0.35rem 0 0.55rem;
+}
+
+.diff-marker {
+  font-weight: 700;
+  color: #23262f;
+  margin-right: 0.3rem;
+}
+
+.diff-badge {
+  display: inline-block;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  margin-right: 0.4rem;
+  vertical-align: 0.08em;
+}
+
+.diff-badge-added {
+  background: #dcf0e3;
+  color: #216c42;
+}
+
+.diff-badge-removed {
+  background: #f7dcdb;
+  color: #94413c;
+}
+
+/* 항 전체가 신설/삭제된 경우에만 항 배경을 준다 */
+.diff-clause-added {
+  background: #f2faf5;
+  border-left: 3px solid #a8d9ba;
+  padding-left: 0.75rem;
+  margin-left: -0.15rem;
+  border-radius: 3px;
+}
+
+.diff-col-new.diff-clause-added {
+  margin-left: 1.25rem;
+}
+
+.diff-clause-removed {
+  background: #fdf5f5;
+  border-left: 3px solid #e0b0ac;
+  padding-left: 0.75rem;
+  border-radius: 3px;
+}
+
+/* --- 문장 단위 줄 --- */
+
+.diff-line {
+  margin: 0;
+  padding: 0.05rem 0;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  color: #23262f;
+}
+
+.diff-line-same {
+  color: #7c828f;
+}
+
+/* 문장 대부분이 바뀐 경우 — 구절 강조 대신 문장을 옅게 감싼다 */
+.diff-line-replaced {
+  background: #f6f7fa;
+  border-radius: 3px;
+}
+
+/* 항은 그대로인데 그 안의 문장 하나가 신설/삭제된 경우 */
+.diff-line-added {
+  background: #eef8f2;
+  border-radius: 3px;
+}
+
+.diff-line-removed {
+  background: #fdf1f0;
+  border-radius: 3px;
+}
+
+.diff-line-blank {
+  min-height: 1.85em;
+}
+
+/* --- 구절 단위 강조 (글자 단위 아님) --- */
+
+.diff-phrase-old {
+  background: #fbe4e3;
+  border-radius: 3px;
+  padding: 0.02em 0.12em;
+}
+
+.diff-phrase-new {
+  background: #dff1e6;
+  border-radius: 3px;
+  padding: 0.02em 0.12em;
+}
+
+/* --- 호/목 들여쓰기 --- */
+
+.diff-line.level-1 {
+  font-weight: 700;
+}
+
+.diff-line.level-2 {
+  padding-left: 0.9rem;
+}
+
+.diff-line.level-3 {
+  padding-left: 1.7rem;
+}
+
+.diff-line.level-4 {
+  padding-left: 2.5rem;
+  font-size: 0.92em;
+}
+
+.diff-line.level-5 {
+  padding-left: 3.3rem;
+  font-size: 0.92em;
+}
+
+.diff-stack {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .diff-columns {
+    display: none;
+  }
+
+  .diff-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    font-family: Georgia, "Noto Serif KR", serif;
+    font-size: 0.95rem;
+    line-height: 1.85;
+  }
+
+  .diff-stack-pane .diff-col-head {
+    border-right: none;
+    padding: 0 0 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 0.4rem;
+  }
+
+  .diff-stack-pane .diff-col-old,
+  .diff-stack-pane .diff-col-new {
+    border-right: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .diff-stack-pane .diff-line-blank {
+    display: none;
+  }
+}
+
+/* ---------- 첨부파일 ---------- */
+
+.attachments-section {
+  padding-top: 1.5rem;
+  border-top: 1px solid #eef0f4;
+}
+
+.attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.attachments-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f2f3f6;
+  font-size: 0.88rem;
+}
+
+.attachments-row:last-child {
+  border-bottom: none;
+}
+
+.attachments-name {
+  flex: 1;
+  color: #23262f;
+  font-weight: 500;
+}
+
+.rel-type {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.14rem 0.5rem;
+  border-radius: 5px;
+  background: #eef0fe;
+  color: #4338ca;
+}
+
+.rel-download {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.rel-download:hover {
+  text-decoration: underline;
+}
