@@ -18,3 +18,13 @@ _preproc_test/
 .env
 **/.env
 .DS_Store
+
+# ── 임시 작업물 (커밋하지 않음) ──
+# sample: 실API 샘플 수집 결과(재생성 가능한 검증용 데이터)
+sample/
+# share.md: 세션 간 작업 공유 메모(작업 노트)
+share.md
+# 로컬 도구 설정·산출물
+.claude/
+output/
+.uv-cache/
